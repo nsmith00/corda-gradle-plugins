@@ -174,7 +174,7 @@ open class Node @Inject constructor(private val project: Project) {
      * @param p2pPort The Artemis messaging queue port.
      */
     fun p2pPort(p2pPort: Int) {
-        p2pAddress(DEFAULT_HOST + ':'.toString() + p2pPort)
+        p2pAddress("$DEFAULT_HOST:$p2pPort")
         this.p2pPort = p2pPort
     }
 
@@ -197,31 +197,11 @@ open class Node @Inject constructor(private val project: Project) {
     }
 
     /**
-     * Set the Artemis RPC port for this node on localhost.
-     *
-     * @param rpcPort The Artemis RPC queue port.
-     */
-    @Deprecated("Use {@link CordformNode#rpcSettings(RpcSettings)} instead. Will be removed by Corda V5.0.")
-    fun rpcPort(rpcPort: Int) {
-        rpcAddress(DEFAULT_HOST + ':'.toString() + rpcPort)
-    }
-
-    /**
-     * Set the Artemis RPC address for this node.
-     *
-     * @param rpcAddress The Artemis RPC queue host and port.
-     */
-    @Deprecated("Use {@link CordformNode#rpcSettings(RpcSettings)} instead. . Will be removed by Corda V5.0.")
-    fun rpcAddress(rpcAddress: String) {
-        setValue("rpcAddress", rpcAddress)
-    }
-
-    /**
      * Configure a webserver to connect to the node via RPC. This port will specify the port it will listen on. The node
      * must have an RPC address configured.
      */
     fun webPort(webPort: Int) {
-        webAddress(DEFAULT_HOST + ':'.toString() + webPort)
+        webAddress("$DEFAULT_HOST:$webPort")
     }
 
     /**
@@ -554,7 +534,7 @@ open class Node @Inject constructor(private val project: Project) {
         // TODO: improve how we re-use existing declared external variables from root gradle.build
         val jolokiaVersion = project.findRootProperty("jolokia_version") ?: "1.6.0"
 
-        val agentJar = project.configuration("runtime").files {
+        val agentJar = project.configuration("runtimeClasspath").files {
             (it.group == "org.jolokia") &&
                     (it.name == "jolokia-jvm") &&
                     (it.version == jolokiaVersion)
