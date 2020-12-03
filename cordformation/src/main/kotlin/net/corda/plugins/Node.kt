@@ -4,6 +4,7 @@ import com.typesafe.config.*
 import groovy.lang.Closure
 import org.gradle.api.GradleException
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
@@ -22,7 +23,7 @@ import javax.inject.Inject
  * Represents a node that will be installed.
  */
 open class Node @Inject constructor(private val project: Project) {
-    internal data class ResolvedCordapp(val jarFile: Path, val config: String?)
+    internal data class ResolvedCordapp(val jarFile: Path, val config: String?, val coordinates: Dependency? = null)
 
     private companion object {
         const val webJarName = "corda-testserver.jar"
@@ -405,13 +406,15 @@ open class Node @Inject constructor(private val project: Project) {
 
     internal fun installCordapps() {
         val cordappsDir = nodeDir.toPath().resolve("cordapps")
-        val nodeCordapps = getCordappList().map(Node.ResolvedCordapp::jarFile).distinct()
-        nodeCordapps.map { nodeCordapp ->
-            project.copy {
-                it.apply {
-                    from(nodeCordapp)
+        val nodeCordapps = getCordappList().distinctBy(Node.ResolvedCordapp::jarFile)
+        nodeCordapps.forEach { nodeCordapp ->
+            project.copy {copySpec ->
+                copySpec.apply {
+                    from(nodeCordapp.jarFile)
                     into(cordappsDir)
+                    rename { nodeCordapp.coordinates?.let { "${it.group}-${it.name}-${it.version}.jar" } }
                 }
+                copySpec.dirMode
             }
         }
     }
@@ -612,16 +615,19 @@ open class Node @Inject constructor(private val project: Project) {
         val cordapps = getCordappList()
         val configDir = project.file(cordappsDir.resolve("config")).toPath()
         Files.createDirectories(configDir)
-        for ((jarFile, config) in cordapps) {
+        for ((jarFile, config, coordinates) in cordapps) {
             if (config == null) continue
-            val fileNameWithoutExtension = jarFile.fileName.toString().let {
-                when(val dotIndex = it.lastIndexOf('.')) {
-                    -1 -> it
-                    else -> it.substring(0, dotIndex)
+            val fileNameWithoutExtension = if (coordinates != null)
+                "${coordinates.group}-${coordinates.name}-${coordinates.version}"
+            else
+                jarFile.fileName.toString().let {
+                    when(val dotIndex = it.lastIndexOf('.')) {
+                        -1 -> it
+                        else -> it.substring(0, dotIndex)
+                    }
                 }
-            }
-            val configFile = configDir.resolve("${fileNameWithoutExtension}.conf")
-            Files.write(configFile, config.toByteArray())
+             val configFile = configDir.resolve("${fileNameWithoutExtension}.conf")
+             Files.write(configFile, config.toByteArray())
         }
     }
 
@@ -751,24 +757,37 @@ open class Node @Inject constructor(private val project: Project) {
 
         val cordappConfiguration = project.configuration("cordapp")
         val cordappName = if (cordapp.project != null) cordapp.project.name else cordapp.coordinates
-        val cordappFile = cordappConfiguration.files {
-            when {
-                (it is ProjectDependency) && (cordapp.project != null) -> it.dependencyProject == cordapp.project
-                cordapp.coordinates != null -> {
-                    // Cordapps can sometimes contain a GString instance which fails the equality test with the Java string
-                    @Suppress("RemoveRedundantCallsOfConversionMethods")
-                    val coordinates = cordapp.coordinates.toString()
-                    coordinates == (it.group + ":" + it.name + ":" + it.version)
-                }
-                else -> false
+//        val cordappFile = cordappConfiguration.files {
+//            when {
+//                (it is ProjectDependency) && (cordapp.project != null) -> it.dependencyProject == cordapp.project
+//                cordapp.coordinates != null -> {
+//                    // Cordapps can sometimes contain a GString instance which fails the equality test with the Java string
+//                    @Suppress("RemoveRedundantCallsOfConversionMethods")
+//                    val coordinates = cordapp.coordinates.toString()
+//                    coordinates == (it.group + ":" + it.name + ":" + it.version)
+//                }
+//                else -> false
+//            }
+//        }
+
+        val cordappDeps = cordappConfiguration.dependencies.filter { dependency ->
+            (((dependency is ProjectDependency) && (dependency.dependencyProject == cordapp.project)) ||
+                (cordapp.coordinates == (dependency.group + ":" + dependency.name + ":" + dependency.version)))
+        }
+        return when {
+            cordappDeps.isEmpty() -> throw GradleException("Cordapp $cordappName not found in cordapps configuration.")
+            cordappDeps.size > 1 -> throw GradleException("Multiple files found for $cordappName")
+            else -> {
+                val cordappDep = cordappDeps.single()
+                ResolvedCordapp(cordappConfiguration.fileCollection(cordappDep).single().toPath(), cordapp.config, cordappDep)
             }
         }
 
-        return when {
-            cordappFile.size == 0 -> throw GradleException("Cordapp $cordappName not found in cordapps configuration.")
-            cordappFile.size > 1 -> throw GradleException("Multiple files found for $cordappName")
-            else -> ResolvedCordapp(cordappFile.single().toPath(), cordapp.config)
-        }
+//        return when {
+//            cordappFile.size == 0 -> throw GradleException("Cordapp $cordappName not found in cordapps configuration.")
+//            cordappFile.size > 1 -> throw GradleException("Multiple files found for $cordappName")
+//            else -> ResolvedCordapp(cordappFile.single().toPath(), cordapp.config)
+//        }
     }
 
     private fun resolveBuiltCordapp(): ResolvedCordapp {

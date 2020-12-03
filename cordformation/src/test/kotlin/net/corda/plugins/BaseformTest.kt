@@ -18,8 +18,8 @@ open class BaseformTest {
     lateinit var buildFile: Path
 
     companion object {
-        const val cordaFinanceWorkflowsJarName = "corda-finance-workflows-4.3"
-        const val cordaFinanceContractsJarName = "corda-finance-contracts-4.3"
+        const val cordaFinanceWorkflowsJarName = "net.corda-corda-finance-workflows-4.3"
+        const val cordaFinanceContractsJarName = "net.corda-corda-finance-contracts-4.3"
         const val localCordappJarName = "locally-built-cordapp"
         const val notaryNodeName = "NotaryService"
         const val notaryNodeUnitName = "OrgUnit"

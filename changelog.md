@@ -8,6 +8,7 @@
 * `jar-filter`: Upgrade to ASM 8.0.1.
 * `quasar-utils`: Resolve warning about deprecated Gradle API usage.
 * `publish-utils`: Make the developers information optional.
+* `cordformation`: Copy external CorDapps using a full-qualified GAV filename when deploying nodes
 
 ### Version 5.0.12
 

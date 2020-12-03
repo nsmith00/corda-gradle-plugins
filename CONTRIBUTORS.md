@@ -105,6 +105,7 @@ changes to this list.
 * Mike Reichelt (US Bank)
 * Mustafa Ozturk (Natixis)
 * Nick Skinner (Northern Trust)
+* Nick Smith (B3i Services)
 * Nigel King (R3)
 * Nuam Athaweth (MUFG)
 * Oscar Zibordi de Paiva (Bradesco)
